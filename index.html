@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>地球破壊ゲーム 〜理科クイズで地球をこわせ!〜</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:"Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;background:radial-gradient(ellipse at 50% 0,#1b2a6b,#05071a 70%);color:#fff;min-height:100vh;overflow-x:hidden}
+#stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+.wrap{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:12px}
+h1{font-size:clamp(20px,4vw,32px);text-align:center;margin:8px 0;text-shadow:0 0 12px #f55}
+.card{background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.25);border-radius:16px;padding:14px;margin:10px 0;backdrop-filter:blur(4px)}
+button{font:inherit;cursor:pointer;border:none;border-radius:12px;padding:12px 18px;font-weight:bold;color:#fff;background:#e8472b;box-shadow:0 4px 0 #8c2412;transition:.1s}
+button:active{transform:translateY(3px);box-shadow:0 1px 0 #8c2412}
+button.blue{background:#2b79e8;box-shadow:0 4px 0 #123d85}
+button.gray{background:#667;box-shadow:0 4px 0 #334}
+button:disabled{opacity:.5}
+input{font:inherit;padding:10px;border-radius:10px;border:2px solid #89f;width:100%;margin:4px 0;color:#000}
+.hide{display:none!important}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1}
+/* 地球 */
+#stage{position:relative;height:260px;display:flex;align-items:center;justify-content:center}
+#earth{width:200px;height:200px;border-radius:50%;position:relative;overflow:hidden;
+ background:radial-gradient(circle at 35% 30%,#7fd0ff 0,#2477d6 45%,#0a2d73 100%);box-shadow:0 0 40px #4af,inset -20px -20px 40px rgba(0,0,0,.5);transition:filter .5s}
+#earth .land{position:absolute;background:#3da34d;border-radius:45% 55% 50% 50%}
+#earth .l1{width:70px;height:55px;left:25px;top:40px}
+#earth .l2{width:60px;height:80px;left:95px;top:85px;transform:rotate(20deg)}
+#earth .l3{width:40px;height:30px;left:120px;top:30px}
+#crack{position:absolute;inset:0;pointer-events:none}
+#fire{position:absolute;inset:0;background:radial-gradient(circle at 50% 60%,rgba(255,120,0,.0),rgba(255,60,0,.0));transition:.5s}
+.shake{animation:shake .4s}
+@keyframes shake{0%,100%{transform:translate(0)}20%{transform:translate(-10px,6px)}40%{transform:translate(9px,-7px)}60%{transform:translate(-7px,-5px)}80%{transform:translate(6px,6px)}}
+.proj{position:absolute;font-size:46px;z-index:5;pointer-events:none}
+.pop{position:absolute;font-size:30px;font-weight:bold;color:#ffec3d;text-shadow:0 0 6px #f00,2px 2px 0 #000;z-index:6;animation:pop 1s forwards;pointer-events:none}
+@keyframes pop{from{transform:translateY(0);opacity:1}to{transform:translateY(-70px);opacity:0}}
+#boom{position:absolute;font-size:180px;z-index:7;animation:boom 1.5s forwards;pointer-events:none}
+@keyframes boom{0%{transform:scale(.2);opacity:1}70%{transform:scale(2.2);opacity:1}100%{transform:scale(3);opacity:0}}
+.debris{position:absolute;font-size:26px;animation:fly 1.6s forwards;pointer-events:none}
+@keyframes fly{to{transform:translate(var(--dx),var(--dy)) rotate(720deg);opacity:0}}
+/* HP */
+#hpbar{height:26px;background:#222;border-radius:14px;overflow:hidden;border:2px solid #fff}
+#hpfill{height:100%;width:100%;background:linear-gradient(90deg,#3f3,#fd3,#f43);background-size:300% 100%;transition:width .6s}
+#hptext{text-align:center;font-weight:bold;margin-top:4px}
+.grid{display:grid;grid-template-columns:1fr 250px;gap:10px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.choice{display:block;width:100%;margin:8px 0;text-align:left;background:#3558c7;box-shadow:0 4px 0 #1a2c70;font-size:17px}
+.choice.ok{background:#1fa84a;box-shadow:0 4px 0 #0c5a26}
+.choice.ng{background:#c0392b;box-shadow:0 4px 0 #6d1f16}
+#q{font-size:20px;line-height:1.5;font-weight:bold}
+.tag{display:inline-block;background:#ffd23f;color:#000;border-radius:8px;padding:1px 8px;font-size:12px;margin-right:6px}
+#explain{background:rgba(255,255,255,.15);border-radius:10px;padding:10px;margin-top:8px;line-height:1.6}
+.weapons{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.weapons button{padding:10px 4px;font-size:14px}
+.weapons .em{font-size:34px;display:block}
+.score div{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed rgba(255,255,255,.3)}
+.me{color:#ffe14d;font-weight:bold}
+#result{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:50;display:flex;align-items:center;justify-content:center;padding:14px}
+#result .card{background:#1b2a6b;max-width:480px;width:100%;text-align:center}
+.small{font-size:13px;opacity:.85}
+#status{font-size:13px;text-align:center}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div class="wrap">
+<h1>🌍💥 地球破壊ゲーム 💥🌍<br><span style="font-size:.55em">〜理科クイズに正かいして、地球をこわそう!〜</span></h1>
+
+<!-- メニュー -->
+<div id="menu" class="card">
+  <p>理科の問題に<b>正かい</b>すると、すごい武器が使えるよ。まちがえたら攻撃は失敗! 連続せいかい(コンボ)でダメージが大きくなるよ。</p>
+  <label>名前<input id="name" maxlength="12" placeholder="なまえ"></label>
+  <label>学年
+    <select id="grade" style="font:inherit;padding:10px;border-radius:10px;width:100%;margin:4px 0">
+      <option value="0">ぜんぶ (3〜6年)</option><option value="3">3年生</option><option value="4">4年生</option><option value="5">5年生</option><option value="6">6年生</option>
+    </select></label>
+  <div class="row" style="margin-top:8px">
+    <button id="btnSolo">🎮 ひとりで あそぶ</button>
+  </div>
+  <hr style="border-color:rgba(255,255,255,.3)">
+  <h3 style="margin:6px 0">🌐 オンライン対戦 (みんなで1つの地球をこわす!)</h3>
+  <p class="small">同じルームの人と1つの地球を取り合い、<b>いちばんダメージを与えた人</b>が勝ち。トドメをさした人には「とどめ賞」!</p>
+  <label>ルーム名 (英数字3〜12文字。友だちと同じ名前にしてね)<input id="room" maxlength="12" placeholder="例: ABC123"></label>
+  <label>中継サーバーのURL<input id="api" placeholder="例: http://localhost:3000"></label>
+  <div class="row">
+    <button class="blue" id="btnOnline">🌐 オンラインで あそぶ</button>
+    <button class="gray" id="btnRand">🎲 ルーム名をつくる</button>
+  </div>
+  <p id="menuMsg" class="small"></p>
+</div>
+
+<!-- ゲーム -->
+<div id="game" class="hide">
+  <div class="card">
+    <div id="hpbar"><div id="hpfill"></div></div>
+    <div id="hptext"></div>
+    <div id="status"></div>
+  </div>
+  <div class="grid">
+    <div>
+      <div class="card" id="stage"><div id="earth">
+        <div class="land l1"></div><div class="land l2"></div><div class="land l3"></div>
+        <svg id="crack" viewBox="0 0 200 200"></svg><div id="fire"></div></div></div>
+      <div class="card" id="qbox">
+        <div><span class="tag" id="qtag"></span><span class="small" id="qcombo"></span></div>
+        <div id="q"></div>
+        <div id="choices"></div>
+        <div id="weaponBox" class="hide">
+          <p><b>🎉 せいかい! 武器をえらんで地球をこうげき!</b></p>
+          <div class="weapons" id="weapons"></div>
+        </div>
+        <div id="explain" class="hide"></div>
+        <button id="btnNext" class="hide" style="margin-top:10px;width:100%">つぎの問題 ▶</button>
+      </div>
+    </div>
+    <div>
+      <div class="card"><b>🏆 ダメージランキング</b><div class="score" id="score"></div></div>
+      <div class="card small" id="mystat"></div>
+      <button class="gray" id="btnBack" style="width:100%">← メニューにもどる</button>
+    </div>
+  </div>
+</div>
+</div>
+<div id="result" class="hide"><div class="card"><h2 id="rTitle"></h2><div id="rBody"></div>
+  <div class="row" style="margin-top:10px"><button id="btnAgain">もう一度</button><button class="gray" id="btnMenu">メニューへ</button></div></div></div>
+
+<script>
+// ===== 設定 =====
+const BASE = "https://serbank.onrender.com/p/35b826d43eb5";
+const WS_BASE = "wss://serbank.onrender.com/p/35b826d43eb5";
+const PUBLIC_KEY = "pk_g5VfXVZac3iTBcbi53_F9KVJgUAcXj-I"; // 読み取り専用キーなので公開OK
+// 書き込みは中継サーバー(server.js)経由。Secretキーはこのファイルに書きません。
+
+const SOLO_HP = 200000;
+const WEAPONS = {
+  meteor:{em:"☄️",name:"いん石",base:6000,sci:"宇宙からの落下"},
+  volcano:{em:"🌋",name:"大ふんか",base:4000,sci:"火山"},
+  typhoon:{em:"🌀",name:"超たいふう",base:3000,sci:"天気"},
+  quake:{em:"🫨",name:"巨大地震",base:3500,sci:"大地"},
+  flare:{em:"☀️",name:"太陽フレア",base:8000,sci:"太陽"},
+  ice:{em:"🧊",name:"氷河期",base:5000,sci:"気温"},
+};
+// 問題: g=学年, t=分野, q=問題, c=選択肢(最初が正解), e=解説
+const QUESTIONS = [
+{g:3,t:"こん虫",q:"こん虫のからだは、頭・むね・あと何でできている?",c:["はら","せなか","あし","はね"],e:"こん虫のからだは「頭・むね・はら」の3つ。あしは6本で、むねについているよ。"},
+{g:3,t:"こん虫",q:"チョウのあしは何本?",c:["6本","8本","4本","10本"],e:"こん虫のあしは6本。クモは8本だからこん虫じゃないんだ。"},
+{g:3,t:"こん虫",q:"チョウの育ち方で、正しいじゅんばんは?",c:["たまご→よう虫→さなぎ→せい虫","たまご→よう虫→せい虫","よう虫→たまご→さなぎ→せい虫","さなぎ→たまご→よう虫→せい虫"],e:"チョウは「完全変態」。さなぎの時期があるよ。バッタはさなぎにならない(不完全変態)。"},
+{g:3,t:"植物",q:"たねをまくと、さいしょに出てくるのは?",c:["子葉(さいしょの葉)","花","実","えだ"],e:"たねから芽が出て、まず子葉が開くよ。そのあと本葉が出てくる。"},
+{g:3,t:"光",q:"かがみではね返した日光を重ねると、明るさとあたたかさはどうなる?",c:["どちらも大きくなる","どちらも小さくなる","明るさだけ大きくなる","かわらない"],e:"光を重ねるほど明るく、あたたかくなる。虫めがねで光を集めると紙がこげるのもこのせいだよ。"},
+{g:3,t:"じしゃく",q:"じしゃくにつくものは?",c:["てつ","アルミニウム","どう(10円玉)","ガラス"],e:"じしゃくにつく金ぞくは、主に鉄。アルミ缶や10円玉(銅)にはつかないよ。"},
+{g:3,t:"じしゃく",q:"じしゃくの同じ極どうしを近づけるとどうなる?",c:["しりぞけ合う","引き合う","くっつく","何も起きない"],e:"N極とS極は引き合い、N極どうし・S極どうしはしりぞけ合うよ。"},
+{g:3,t:"電気",q:"豆電球に明かりがつくのはどんなとき?",c:["電気の通り道が1つの輪になっているとき","どうせんが1本のとき","かん電池が2個のとき","どうせんがはなれているとき"],e:"かん電池の+極から豆電球を通って−極までつながった「輪(回路)」ができると明かりがつくよ。"},
+{g:3,t:"電気",q:"電気を通すものは?",c:["どう線(金ぞく)","ゴム","プラスチック","木のぼう"],e:"金ぞくは電気をよく通す。ゴムやプラスチックは通さないので、どう線の外側をおおっているんだ。"},
+{g:3,t:"太陽",q:"かげは、太陽と反対がわにできる。正しいのは?",c:["太陽が動くと、かげも動く","かげは動かない","かげは太陽と同じ向きにできる","夜にいちばん長い"],e:"太陽の位置が変わると、かげの向きも変わる。日時計はこれを使っているよ。"},
+{g:3,t:"太陽",q:"太陽は、どの方角からのぼる?",c:["東","西","南","北"],e:"太陽は東からのぼり、南の空を通って、西にしずむよ。"},
+{g:3,t:"ものの重さ",q:"ねん土の形をかえると、重さはどうなる?",c:["かわらない","軽くなる","重くなる","なくなる"],e:"形をかえても、ものの重さはかわらないよ。"},
+{g:3,t:"音",q:"音が出ているとき、ものはどうなっている?",c:["ふるえている","止まっている","熱くなっている","光っている"],e:"音は物のふるえ(しんどう)が空気を伝わって耳にとどくよ。太鼓にさわるとふるえがわかる。"},
+{g:4,t:"空気と水",q:"とじこめた空気をおすと、体積はどうなる?",c:["小さくなる(おし返す力がある)","大きくなる","かわらない","なくなる"],e:"空気は押すと縮む。でも水は押しても縮まないよ。"},
+{g:4,t:"水",q:"水は、何度でこおりはじめる?",c:["0℃","10℃","−10℃","100℃"],e:"水は0℃でこおり、100℃でふっとうして水蒸気になるよ。"},
+{g:4,t:"水",q:"水が水蒸気になって空気中に出ていく現象は?",c:["じょう発","結露","ゆう解","ぎょう固"],e:"水が目に見えない水蒸気になることをじょう発という。ふっとうとちがい、ふつうの温度でも起きるよ。"},
+{g:4,t:"水",q:"水がこおって氷になると、体積はどうなる?",c:["大きくなる(約1.1倍)","小さくなる","かわらない","半分になる"],e:"水は氷になると体積が約1割ふえる。冬に水道管がやぶれるのはこのためだよ。"},
+{g:4,t:"月",q:"月が光って見えるのはなぜ?",c:["太陽の光を反しゃしているから","自分で光っているから","地球の光を出しているから","星の光を集めるから"],e:"月は自分で光らず、太陽の光を反射して光って見えるよ。"},
+{g:4,t:"月",q:"月の形が日によって変わって見えるのはなぜ?",c:["太陽・月・地球の位置関係が変わるから","月が大きくなったり小さくなるから","地球のかげが毎日変わるから","雲があるから"],e:"月が地球のまわりを回るので、太陽の光が当たって見える部分が変わるよ(満ち欠け)。約29.5日でひとまわり。"},
+{g:4,t:"星",q:"夜空の星の中で、ほとんど動かず方角の目印になる星は?",c:["北極星","金星","月","太陽"],e:"北極星はほぼ真北にあって動かない。北斗七星やカシオペヤ座から見つけられるよ。"},
+{g:4,t:"人体",q:"うでを曲げ伸ばしできるのは、何と何のはたらき?",c:["ほねと筋肉","ほねだけ","筋肉だけ","血管"],e:"ほね・筋肉・関節がいっしょにはたらいて体が動く。筋肉は縮むことで力を出すよ。"},
+{g:4,t:"天気",q:"1日の気温がいちばん高くなるのは、晴れの日のいつごろ?",c:["午後2時ごろ","正午ちょうど","朝6時","夜12時"],e:"太陽が真南に来る正午より少しおくれて、午後2時ごろが気温最高。地面があたたまって空気をあたためるからだよ。"},
+{g:4,t:"電気",q:"かん電池2この直列つなぎは、1個にくらべて?",c:["電流が大きくなる","電流が小さくなる","かわらない","電流が止まる"],e:"直列つなぎは電池を+−+−と1列につなぐ。電流が大きくなり、モーターは速く回るよ。"},
+{g:5,t:"天気",q:"台風はどこで生まれる?",c:["南の海の上","北極","砂ばく","山のてっぺん"],e:"台風は熱帯の海で生まれる低気圧。あたたかい海水からの水蒸気がエネルギーになるよ。"},
+{g:5,t:"天気",q:"雲のでき方で正しいのは?",c:["水蒸気が上空で冷えて小さな水つぶや氷つぶになる","空気がこおる","海水がそのまま上がる","風がぎゅっとかたまる"],e:"空気が上昇して冷えると水蒸気が水てきになって雲になる。それが大きくなると雨になるよ。"},
+{g:5,t:"植物",q:"種子が発芽するのに必要な3つの条件は?",c:["水・空気・ちょうどよい温度","水・光・肥料","光・空気・土","肥料・光・温度"],e:"発芽には水・空気・ちょうどよい温度が必要。光や肥料は発芽には要らないよ(育つには必要)。"},
+{g:5,t:"植物",q:"めしべのもとにある、ふくらんで実になる部分は?",c:["子ぼう","がく","おしべ","花びら"],e:"受粉するとめしべの子ぼうが実に、中のはい珠が種子になるよ。"},
+{g:5,t:"流れる水",q:"川の曲がり角で、川岸がけずられやすいのはどちら?",c:["曲がりの外側","曲がりの内側","どちらも同じ","けずられない"],e:"外側は流れが速くてしん食(けずる)が強く、内側は流れがおそくて土砂がたまるよ。"},
+{g:5,t:"流れる水",q:"大雨で川の水の量がふえると、土地をけずる力は?",c:["大きくなる","小さくなる","かわらない","なくなる"],e:"水の量がふえ流れが速くなると、しん食・運ぱんのはたらきが大きくなり、こう水が起きやすくなるよ。"},
+{g:5,t:"ふりこ",q:"ふりこが1往復する時間を変えるのは?",c:["ふりこの長さ","おもりの重さ","ふれはば","おもりの色"],e:"ふりこの周期はひもの長さだけで決まる。長いほどゆっくり。重さやふれはばは関係ないよ。"},
+{g:5,t:"もののとけ方",q:"水の温度を上げると、食塩のとける量は?",c:["あまり変わらない","とても増える","ゼロになる","へる"],e:"食塩は温度でほとんど変わらないけど、ミョウバンなど多くの物は温度が高いほどたくさんとけるよ。"},
+{g:5,t:"電磁石",q:"電磁石の力を強くする方法は?",c:["コイルのまき数を増やす","まき数を減らす","電池をはずす","鉄心をぬく"],e:"まき数を増やす、電流を大きくする、鉄心を入れると強くなる。電流を止めると磁石でなくなるのも特ちょうだよ。"},
+{g:5,t:"生命",q:"メダカのおすとめすを見分けるポイントは?",c:["せびれの切れこみとしりびれの形","目の大きさ","体の色","口の形"],e:"おすはせびれに切れこみがあり、しりびれは平行四辺形。めすのしりびれは三角形に近いよ。"},
+{g:6,t:"燃焼",q:"ものが燃えるときに使われる気体は?",c:["さんそ","ちっ素","二酸化炭素","ヘリウム"],e:"ものが燃えるとさんそが使われて、二酸化炭素ができる。空気の約21%がさんそだよ。"},
+{g:6,t:"燃焼",q:"空気中でいちばん多くふくまれる気体は?",c:["ちっ素(約78%)","さんそ","二酸化炭素","水素"],e:"空気は、ちっ素約78%、さんそ約21%、その他約1%。二酸化炭素は約0.04%だよ。"},
+{g:6,t:"水よう液",q:"石灰水に二酸化炭素を通すとどうなる?",c:["白くにごる","赤くなる","あわが出る","色が消える"],e:"二酸化炭素の確認には石灰水を使う。白くにごったら二酸化炭素があるサイン!"},
+{g:6,t:"水よう液",q:"青いリトマス紙を赤く変える水よう液は?",c:["酸性(塩酸・レモン汁など)","アルカリ性","中性","どれも変えない"],e:"酸性は青→赤。アルカリ性は赤→青に変える。食塩水などの中性は変えないよ。"},
+{g:6,t:"からだ",q:"血液を全身に送り出すポンプのはたらきをする器官は?",c:["心臓","はい","かん臓","胃"],e:"心臓は血液を全身に送り出すポンプ。ほ乳類の心臓は4つの部屋に分かれているよ。"},
+{g:6,t:"からだ",q:"食べ物の養分をおもに吸収する場所は?",c:["小腸","胃","大腸","食道"],e:"養分は小腸で吸収される。大腸は主に水分を吸収するよ。"},
+{g:6,t:"植物",q:"植物が光を受けて養分(デンプン)をつくるはたらきは?",c:["光合成","呼吸","じょう散","受粉"],e:"光合成は二酸化炭素と水から、光を使ってデンプンとさんそを作るはたらき。"},
+{g:6,t:"植物",q:"葉から水が水蒸気になって出ていくことを何という?",c:["じょう散","光合成","呼吸","発芽"],e:"じょう散は主に葉の気こうから起きる。根から水を吸い上げる力にもなっているよ。"},
+{g:6,t:"生き物",q:"食べる・食べられるという生き物のつながりを何という?",c:["食物れんさ","食物ぎょうこ","生物ほうそう","はいせつ"],e:"植物→草食動物→肉食動物のように、食べ物を通じてつながっているよ。"},
+{g:6,t:"大地",q:"火山がふん火するとき、地下から出てくるどろどろにとけた岩石は?",c:["マグマ(地上ではようがん)","ようがん岩","せっかい岩","れき"],e:"地下にあるときはマグマ、地上に出るとようがんとよぶよ。"},
+{g:6,t:"大地",q:"地しんは、おもに何がずれて起きる?",c:["地下の岩ばん(断層・プレート)","雲","海水","空気"],e:"地下の岩ばんがずれると、ゆれが波として地面を伝わる。これが地しんだよ。"},
+{g:6,t:"大地",q:"れき・砂・どろは、何で分けられている?",c:["つぶの大きさ","色","重さ","におい"],e:"れき(2mm以上)・砂・どろの順につぶが小さくなる。流れる水でつぶの大きさごとに積もるよ。"},
+{g:6,t:"月と太陽",q:"日食は、どの順に並んだとき起きる?",c:["太陽・月・地球","太陽・地球・月","地球・太陽・月","月・太陽・地球"],e:"月が太陽をかくすのが日食。地球が月に入って月が欠けるのは月食だよ。"},
+{g:6,t:"てこ",q:"てこで、小さな力で重いものを持ち上げるには?",c:["力点を支点から遠くする","力点を支点に近づける","作用点を支点から遠くする","支点をはずす"],e:"てこは「力×支点からのきょり」が左右でつり合う。力点を支点から遠くすると、小さな力で持ち上がるよ。"},
+{g:6,t:"地球",q:"地球が自転することで起きることは?",c:["昼と夜","春夏秋冬","月の満ち欠け","潮が止まる"],e:"地球は1日1回自転するから昼夜がある。季節は地球の地じくがかたむいて公転するから起きるよ。"},
+{g:6,t:"地球",q:"地球温暖化の原因とされる気体は?",c:["二酸化炭素など","ヘリウム","ネオン","アルゴン"],e:"二酸化炭素などの温室効果ガスが増えると、地球の熱がにげにくくなる。地球は私たちのたいせつな星だよ 🌍"},
+];
+
+// ===== ユーティリティ =====
+const $ = (id) => document.getElementById(id);
+const rnd = (n) => Math.floor(Math.random() * n);
+const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (n) => Number(n).toLocaleString("ja-JP");
+
+// ===== 星空 =====
+(function () {
+  const c = $("stars"), x = c.getContext("2d"); let S = [];
+  function size() { c.width = innerWidth; c.height = innerHeight; S = Array.from({ length: 120 }, () => ({ x: Math.random() * c.width, y: Math.random() * c.height, r: Math.random() * 1.6 + .3, p: Math.random() * 6 })); }
+  function draw(t) { x.clearRect(0, 0, c.width, c.height); for (const s of S) { x.globalAlpha = .5 + .5 * Math.sin(t / 700 + s.p); x.fillStyle = "#fff"; x.beginPath(); x.arc(s.x, s.y, s.r, 0, 7); x.fill(); } requestAnimationFrame(draw); }
+  addEventListener("resize", size); size(); requestAnimationFrame(draw);
+})();
+
+// ===== 状態 =====
+const S = { mode: "", id: "", name: "", room: "", api: "", hp: 0, max: 0, players: {}, over: false, combo: 0, asked: 0, correct: 0, q: null, ws: null, wsTimer: null, locked: false, finisher: "", lastSeen: 0 };
+const savedId = localStorage.getItem("eb_id") || Math.random().toString(36).slice(2, 12) + Date.now().toString(36).slice(-4);
+localStorage.setItem("eb_id", savedId);
+$("name").value = localStorage.getItem("eb_name") || "";
+$("room").value = localStorage.getItem("eb_room") || "";
+$("api").value = localStorage.getItem("eb_api") || (location.protocol.startsWith("http") ? location.origin : "");
+
+// ===== 地球の表示 =====
+function drawEarth() {
+  const r = S.hp / S.max;
+  $("hpfill").style.width = (r * 100) + "%";
+  $("hpfill").style.backgroundPosition = ((1 - r) * 100) + "% 0";
+  $("hptext").textContent = `地球のHP ${fmt(S.hp)} / ${fmt(S.max)}`;
+  // ひび割れ
+  const n = Math.floor((1 - r) * 12);
+  let p = "";
+  const seeds = [[100,100,40,20],[100,100,170,60],[100,100,150,160],[100,100,60,170],[100,100,20,120],[100,100,110,10],[100,100,190,110],[100,100,100,195],[100,100,10,60],[100,100,60,10],[100,100,180,170],[100,100,30,180]];
+  for (let i = 0; i < n; i++) { const s = seeds[i]; const mx = (s[0] + s[2]) / 2 + (i % 2 ? 12 : -12), my = (s[1] + s[3]) / 2 + (i % 3 ? -9 : 9); p += `<path d="M${s[0]} ${s[1]} L${mx} ${my} L${s[2]} ${s[3]}" stroke="#2b1200" stroke-width="3" fill="none"/>`; }
+  $("crack").innerHTML = p;
+  $("fire").style.background = `radial-gradient(circle at 50% 60%,rgba(255,140,0,${(1 - r) * .7}),rgba(255,40,0,${(1 - r) * .5}))`;
+  $("earth").style.filter = `saturate(${1 - (1 - r) * .4}) brightness(${1 - (1 - r) * .2})`;
+}
+function drawScore() {
+  const list = Object.entries(S.players).sort((a, b) => b[1].dmg - a[1].dmg);
+  $("score").innerHTML = list.map(([id, p], i) => `<div class="${id === S.id ? "me" : ""}"><span>${i + 1}. ${esc(p.name)}</span><span>${fmt(p.dmg)}</span></div>`).join("") || "<div>まだだれもいないよ</div>";
+  $("mystat").innerHTML = `せいかい: ${S.correct} / ${S.asked} 問<br>コンボ: ${S.combo} 🔥` + (S.mode === "online" ? `<br>ルーム: <b>${esc(S.room)}</b>` : "");
+}
+function effectAt(emoji, dmg, who) {
+  const st = $("stage"), e = $("earth"), sr = st.getBoundingClientRect();
+  const proj = document.createElement("div"); proj.className = "proj"; proj.textContent = emoji;
+  proj.style.left = (sr.width / 2 - 23) + "px"; proj.style.top = "-60px"; st.appendChild(proj);
+  proj.animate([{ top: "-60px", transform: "scale(.6)" }, { top: "100px", transform: "scale(1.4)" }], { duration: 450, easing: "ease-in" }).onfinish = () => {
+    proj.remove(); e.classList.remove("shake"); void e.offsetWidth; e.classList.add("shake");
+    const pop = document.createElement("div"); pop.className = "pop"; pop.textContent = (who ? who + " " : "") + "-" + fmt(dmg);
+    pop.style.left = (sr.width / 2 - 60 + rnd(60) - 30) + "px"; pop.style.top = "70px"; st.appendChild(pop); setTimeout(() => pop.remove(), 1000);
+  };
+}
+function explode() {
+  const st = $("stage"); $("earth").style.visibility = "hidden";
+  const b = document.createElement("div"); b.id = "boom"; b.textContent = "💥"; st.appendChild(b); setTimeout(() => b.remove(), 1600);
+  for (let i = 0; i < 26; i++) { const d = document.createElement("div"); d.className = "debris"; d.textContent = ["🔥", "🪨", "💫", "⭐", "☄️"][rnd(5)]; d.style.left = "50%"; d.style.top = "50%"; d.style.setProperty("--dx", (rnd(600) - 300) + "px"); d.style.setProperty("--dy", (rnd(400) - 200) + "px"); st.appendChild(d); setTimeout(() => d.remove(), 1700); }
+}
+
+// ===== クイズ =====
+function pickQuestion() {
+  const g = +$("grade").value;
+  let pool = QUESTIONS.filter((q) => !g || q.g === g);
+  if (!S.used) S.used = new Set();
+  let fresh = pool.filter((q) => !S.used.has(q));
+  if (!fresh.length) { S.used.clear(); fresh = pool; }
+  const q = fresh[rnd(fresh.length)]; S.used.add(q); return q;
+}
+function nextQuestion() {
+  if (S.over) return;
+  S.q = pickQuestion(); S.locked = false;
+  const cs = shuffle(S.q.c.map((t, i) => ({ t, ok: i === 0 })));
+  $("qtag").textContent = `${S.q.g}年 / ${S.q.t}`;
+  $("qcombo").textContent = S.combo ? `🔥 ${S.combo}コンボ中! ダメージ×${(1 + Math.min(5, S.combo) * .2).toFixed(1)}` : "";
+  $("q").textContent = S.q.q;
+  $("choices").innerHTML = ""; $("weaponBox").classList.add("hide"); $("explain").classList.add("hide"); $("btnNext").classList.add("hide");
+  cs.forEach((c) => { const b = document.createElement("button"); b.className = "choice"; b.textContent = c.t; b.onclick = () => answer(b, c.ok, cs); $("choices").appendChild(b); });
+  S.cs = cs;
+}
+function answer(btn, ok) {
+  if (S.locked) return; S.locked = true; S.asked++;
+  [...$("choices").children].forEach((b, i) => { if (S.cs[i].ok) b.classList.add("ok"); b.disabled = true; });
+  const ex = $("explain");
+  if (ok) {
+    S.correct++; S.combo++;
+    ex.innerHTML = `⭕ せいかい!<br>📖 ${esc(S.q.e)}`;
+    showWeapons();
+  } else {
+    S.combo = 0; btn.classList.add("ng");
+    ex.innerHTML = `❌ ざんねん! こうげき失敗…<br>📖 ${esc(S.q.e)}`;
+    $("btnNext").classList.remove("hide");
+  }
+  ex.classList.remove("hide"); drawScore();
+}
+function showWeapons() {
+  const keys = shuffle(Object.keys(WEAPONS)).slice(0, 3);
+  const mult = 1 + Math.min(5, S.combo) * .2;
+  $("weapons").innerHTML = "";
+  keys.forEach((k) => { const w = WEAPONS[k]; const b = document.createElement("button"); b.innerHTML = `<span class="em">${w.em}</span>${w.name}<br><span class="small">${fmt(Math.round(w.base * mult))}</span>`; b.onclick = () => fire(k); $("weapons").appendChild(b); });
+  $("weaponBox").classList.remove("hide");
+}
+async function fire(k) {
+  $("weaponBox").classList.add("hide");
+  const w = WEAPONS[k], comboUsed = Math.min(5, S.combo - 1 >= 0 ? S.combo : 0);
+  if (S.mode === "solo") {
+    const dmg = Math.round(w.base * (1 + comboUsed * .2));
+    effectAt(w.em, dmg);
+    S.hp = Math.max(0, S.hp - dmg); S.players.me.dmg += dmg; S.players.me.hits++;
+    if (S.hp <= 0) { S.over = true; S.finisher = S.name; }
+    setTimeout(afterHit, 500);
+  } else {
+    try {
+      const r = await post("hit", { room: S.room, id: S.id, weapon: k, combo: comboUsed });
+      effectAt(w.em, r.dmg);
+      applyRoom(r.room, true);
+    } catch (e) { $("status").textContent = "⚠️ " + e.message; }
+    setTimeout(afterHit, 500);
+  }
+}
+function afterHit() {
+  drawEarth(); drawScore();
+  if (S.over) return gameOver();
+  $("btnNext").classList.remove("hide");
+}
+function gameOver() {
+  explode();
+  setTimeout(() => {
+    const list = Object.entries(S.players).sort((a, b) => b[1].dmg - a[1].dmg);
+    const win = list[0] && list[0][0] === S.id;
+    $("rTitle").textContent = S.mode === "solo" ? "🎉 地球はこわれた!" : (win ? "🏆 あなたの勝ち!" : "🌍💥 地球はこわれた!");
+    $("rBody").innerHTML = (S.finisher ? `とどめをさした人: <b>${esc(S.finisher)}</b> 🎯<br>` : "") +
+      list.map(([id, p], i) => `<div class="${id === S.id ? "me" : ""}">${["🥇", "🥈", "🥉"][i] || (i + 1 + ".")} ${esc(p.name)} … ${fmt(p.dmg)} ダメージ (${p.hits}回)</div>`).join("") +
+      `<p>せいかい率: ${S.correct}/${S.asked}問<br>地球はこわれたけど、現実の地球は大切にしようね 🌏</p>`;
+    $("result").classList.remove("hide");
+  }, 1400);
+}
+
+// ===== 通信 =====
+async function post(act, body) {
+  const base = S.api.replace(/\/+$/, "");
+  const r = await fetch(base + "/api/" + act, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || "通信エラー(" + r.status + ")");
+  return j;
+}
+function applyRoom(room, fromPost) {
+  if (!room) return;
+  const wasOver = S.over;
+  S.hp = room.hp; S.max = room.max; S.players = room.players || {}; S.over = !!room.over; S.finisher = room.finisher || "";
+  if (!fromPost && room.last && room.last.id !== S.id && room.last.t !== S.lastSeen) { S.lastSeen = room.last.t; effectAt(WEAPONS[room.last.weapon]?.em || "☄️", room.last.dmg, room.last.name); }
+  if (room.last) S.lastSeen = room.last.t;
+  if (!S.over && wasOver) { $("result").classList.add("hide"); $("earth").style.visibility = ""; if (S.q) nextQuestion(); }
+  setTimeout(() => { drawEarth(); drawScore(); }, fromPost ? 0 : 450);
+  if (S.over && !wasOver && !fromPost) { $("weaponBox").classList.add("hide"); gameOver(); }
+}
+function connectWS() {
+  clearTimeout(S.wsTimer); if (S.ws) { S.ws.onclose = null; S.ws.close(); }
+  const ws = new WebSocket(WS_BASE + "?key=" + PUBLIC_KEY); S.ws = ws;
+  const key = "room_" + S.room;
+  ws.onopen = () => { $("status").textContent = "🟢 オンライン接続中"; };
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === "init") { const en = m.data && m.data[key]; if (en) applyRoom(en.value); }
+    else if (m.type === "update" && m.key === key) applyRoom(m.entry.value);
+  };
+  ws.onclose = () => { if (S.mode !== "online") return; $("status").textContent = "🟡 再接続中…"; S.wsTimer = setTimeout(connectWS, 2000); };
+}
+
+// ===== 開始・終了 =====
+function startCommon() {
+  S.combo = 0; S.asked = 0; S.correct = 0; S.over = false; S.finisher = ""; S.used = null;
+  $("menu").classList.add("hide"); $("game").classList.remove("hide"); $("result").classList.add("hide"); $("earth").style.visibility = "";
+}
+function getName() { const n = $("name").value.trim() || "ななし"; localStorage.setItem("eb_name", n); return n; }
+$("btnSolo").onclick = () => {
+  S.mode = "solo"; S.id = "me"; S.name = getName(); startCommon();
+  S.max = S.hp = SOLO_HP; S.players = { me: { name: S.name, dmg: 0, hits: 0 } };
+  $("status").textContent = "ひとりモード"; drawEarth(); drawScore(); nextQuestion();
+};
+$("btnRand").onclick = () => { $("room").value = Math.random().toString(36).slice(2, 8).toUpperCase(); };
+$("btnOnline").onclick = async () => {
+  const room = $("room").value.trim().toUpperCase(), api = $("api").value.trim();
+  if (!/^[A-Z0-9]{3,12}$/.test(room)) return ($("menuMsg").textContent = "ルーム名は英数字3〜12文字にしてね");
+  if (!api) return ($("menuMsg").textContent = "中継サーバーのURLを入れてね (README参照)");
+  localStorage.setItem("eb_room", room); localStorage.setItem("eb_api", api);
+  S.mode = "online"; S.id = savedId; S.name = getName(); S.room = room; S.api = api;
+  $("menuMsg").textContent = "接続中…";
+  try {
+    const r = await post("join", { room, id: S.id, name: S.name });
+    startCommon(); applyRoom(r.room, true); drawEarth(); drawScore(); connectWS(); nextQuestion();
+    $("menuMsg").textContent = "";
+  } catch (e) { $("menuMsg").textContent = "⚠️ " + e.message; }
+};
+function toMenu() {
+  if (S.ws) { S.ws.onclose = null; S.ws.close(); S.ws = null; }
+  S.mode = ""; $("game").classList.add("hide"); $("result").classList.add("hide"); $("menu").classList.remove("hide"); $("earth").style.visibility = "";
+}
+$("btnBack").onclick = toMenu; $("btnMenu").onclick = toMenu;
+$("btnNext").onclick = nextQuestion;
+$("btnAgain").onclick = async () => {
+  if (S.mode === "solo") { $("btnSolo").onclick(); }
+  else { try { const r = await post("reset", { room: S.room }); $("result").classList.add("hide"); $("earth").style.visibility = ""; S.combo = 0; applyRoom(r.room, true); nextQuestion(); } catch (e) { $("status").textContent = "⚠️ " + e.message; } }
+};
+</script>
+</body>
+</html>
