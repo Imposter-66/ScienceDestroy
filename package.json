@@ -1,0 +1,12 @@
+{
+  "name": "earth-breaker-game",
+  "version": "1.0.0",
+  "description": "地球破壊ゲーム 中継サーバー",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
